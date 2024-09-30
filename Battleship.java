@@ -7,6 +7,8 @@ public class Battleship
     char[][] userGuessedGrid = new char[10][10];
     char[][] enemyShipGrid = new char[10][10];
     char[][] enemyGuessedGrid = new char[10][10];
+    int[][] userFrequencyGrid = new int[10][10];
+    int[] shipPlaces = {2, 3, 3, 4, 5};
 
     // Variables for tracking game state
     int row;
@@ -17,6 +19,7 @@ public class Battleship
     int lastHitDir;
     int orientation;
     int turnNum = 0;
+    int totalShips = 0;
 
     Random random = new Random();
     Scanner scanner = new Scanner(System.in);
@@ -24,12 +27,19 @@ public class Battleship
     // Main game loop
     public void run()
     {
+        // Initialize total number of ship squares
+        for(int i = 0; i < shipPlaces.length; i++)
+        {
+            totalShips += shipPlaces[i];
+        }
+
         // Clear console and initialize grids
         System.out.print("\033[H\033[2J");
         setStartGrid(userShipGrid);
         setStartGrid(userGuessedGrid);
         setStartGrid(enemyShipGrid);
         setStartGrid(enemyGuessedGrid);
+        setFrequencyGrid(userFrequencyGrid);
 
         // Welcome message
         System.out.println("================================");
@@ -38,16 +48,11 @@ public class Battleship
         System.out.println("Time to place your ships.");
 
         // Prompt user to place ships of varying lengths
-        placeShipClick();
-        placeShip(2);
-        placeShipClick();
-        placeShip(3);
-        placeShipClick();
-        placeShip(3);
-        placeShipClick();
-        placeShip(4);
-        placeShipClick();
-        placeShip(5);
+        for(int i = 0; i < shipPlaces.length; i++)
+        {
+            placeShipClick();
+            placeShip(i);
+        }
 
         // Clear console and show user's current ship grid
         System.out.print("\033[H\033[2J");
@@ -149,7 +154,49 @@ public class Battleship
         }
     }
 
+    public void setFrequencyGrid(int grid[][])
+    {
+        for(int row = 0; row < 10; row++)
+        {
+            for(int col = 0; col < 10; col++)
+            {
+                if((row == 0 || row == 9) && (col == 0 || col == 9))
+                {
+                    grid[row][col] = 4;
+                }
+                else if(row == 0 || row == 9 ||col == 0 || col == 9)
+                {
+                    grid[row][col] = 6;
+                }
+                else
+                {
+                    grid[row][col] = 9;
+                }
+            }
+        }
+    }
+
     public void printGrid(char grid[][])
+    {
+        // Print the grid to the console with row and column headers
+        System.out.print(" ");
+        for(int i = 0; i < 10; i++)
+        {
+            System.out.print(" " + (i + 1));
+        }
+        System.out.println();
+        for(int row = 0; row < 10; row++)
+        {
+            System.out.print((char) (row + 65));
+            for(int col = 0; col < 10; col++)
+            {
+                System.out.print(" " + grid[row][col]);
+            }
+            System.out.println();
+        }
+    }
+
+    public void printGrid(int grid[][])
     {
         // Print the grid to the console with row and column headers
         System.out.print(" ");
@@ -172,7 +219,6 @@ public class Battleship
     public void enemyPlaceShips()
     {
         // Define ship lengths for the enemy
-        int[] shipPlaces = {2, 3, 3, 4, 5};
         int length;
         int row;
         int col;
@@ -377,6 +423,19 @@ public class Battleship
         return true;
     }
 
+    public void updateFrequency(int row, int col)
+    {
+        for (int i = Math.max(0, row - 1); i <= Math.min(9, row + 1); i++)
+        {
+            for (int j = Math.max(0, col - 1); j <= Math.min(9, col + 1); j++)
+            {
+                if (userGuessedGrid[i][j] == '-') {
+                    userFrequencyGrid[i][j]--;
+                }
+            }
+        }
+    }
+
     public boolean userTurn()
     {
         takeYourTurn();
@@ -462,7 +521,7 @@ public class Battleship
                     num++;
                 }
                 // Check if all enemy ships have been hit
-                if(num == 17)
+                if(num == totalShips)
                 {
                     turnNum += 1;
                     return true;
@@ -513,6 +572,10 @@ public class Battleship
 
         // Check if the guess hits a user's ship
         System.out.println("   Computer shot at " + rowShot + colShot);
+
+        // Update frequency array
+        updateFrequency(row, col);
+
         if(userShipGrid[row][col] == 'X')
         {
             System.out.println("     Computer hit");
@@ -546,7 +609,7 @@ public class Battleship
                     bnum++;
                 }
                 // Check if all ships have been hit
-                if(bnum == 17)
+                if(bnum == totalShips)
                 {
                     return true;
                 }
@@ -555,17 +618,21 @@ public class Battleship
         return false;
     }
 
-    public void randomGuess()
+    public void weightedRandomGuess()
     {
         int row;
         int col;
+        int roll;
+        int cellFrequencyValue;
         // Generate random guesses until an unguessed location is found
         while(true)
         {
             row = random.nextInt(10);
             col = random.nextInt(10);
-            // Check if the guessed cell is unguessed
-            if(userGuessedGrid[row][col] == '-')
+            roll = random.nextInt(9) + 1;
+            cellFrequencyValue = userFrequencyGrid[row][col];
+            // Check if the guessed cell is unguessed and viable frequency
+            if(userGuessedGrid[row][col] == '-' && roll <= cellFrequencyValue)
             {
                 guess(row, col);
                 break;
@@ -592,7 +659,7 @@ public class Battleship
         {
             return;
         }
-        randomGuess();
+        weightedRandomGuess();
     }
 
     public boolean guessAround()
@@ -607,15 +674,15 @@ public class Battleship
         {
             return true;
         }
-        if(guessBelow())
+        else if(guessBelow())
         {
             return true;
         }
-        if(guessRight())
+        else if(guessRight())
         {
             return true;
         }
-        if(guessLeft())
+        else if(guessLeft())
         {
             return true;
         }
